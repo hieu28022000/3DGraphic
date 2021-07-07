@@ -1,1 +1,2 @@
 # 3DGraphic
+Có thể sử dụng bất kì phần mềm render web nào để sử dụng. Có thể tham khảo cách cài đặt và sử dụng bằng VS code và Live Sever ở đây https://drive.google.com/file/d/1KWzxuy_9lgZoRwZOxhAOpfE7BUKTpAzn/view?usp=sharing

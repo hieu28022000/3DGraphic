@@ -2,7 +2,9 @@ import * as THREE from './js/three.module.js';
 import { OrbitControls } from './js/OrbitControls.js';
 import { TransformControls } from './js/TransformControls.js';
 import { TeapotBufferGeometry } from './js/TeapotBufferGeometry.js';
+import { GLTFLoader } from './js/GLTFloader.js';
 
+// Environment
 var camera, scene, renderer, control, orbit;
 var mesh, texture;
 var raycaster, light, PointLightHelper, meshplan;
@@ -10,128 +12,109 @@ var type_material = 3;
 var material = new THREE.MeshBasicMaterial({ color: 0xC0C0C0 });
 material.needsUpdate = true;
 var mouse = new THREE.Vector2();
+scene = new THREE.Scene();
+scene.background = new THREE.Color(0x26456B);
+var size = 300;
+var divisions = 50;
+var gridHelper = new THREE.GridHelper(size, divisions, 0xFFFFFF);
+scene.add(gridHelper);
+
+// Camera
+camera = new THREE.PerspectiveCamera(50, window.innerWidth/window.innerHeight, 1, 1000);
+camera.position.set(50, 100, 180);
+camera.lookAt(new THREE.Vector3(0, 0, 0));
 
 // Geometry
-var BoxGeometry = new THREE.BoxGeometry(30, 30, 30, 40, 40, 40);
-var SphereGeometry = new THREE.SphereGeometry(20, 20, 20);
-var ConeGeometry = new THREE.ConeGeometry(18, 30, 32, 20);
-var CylinderGeometry = new THREE.CylinderGeometry(20, 20, 40, 30, 5);
-var TorusGeometry = new THREE.TorusGeometry(20, 5, 20, 100);
-var TeapotGeometry = new TeapotBufferGeometry(20, 8);
+var BoxGeometry = new THREE.BoxGeometry(40, 40, 40, 50, 50, 50);
+var SphereGeometry = new THREE.SphereGeometry(25, 50, 50);
+var ConeGeometry = new THREE.ConeGeometry(15, 55, 50, 50);
+var CylinderGeometry = new THREE.CylinderGeometry(15, 15, 55, 50, 50);
+var TorusGeometry = new THREE.TorusGeometry(25, 5, 50, 50);
+var TeapotGeometry = new TeapotBufferGeometry(20, 50);
 var DodecahedronGeometry = new THREE.DodecahedronBufferGeometry(25);
 var IcosahedronGeometry = new THREE.IcosahedronBufferGeometry(25);
-var OctahedronGeometry =  new THREE.OctahedronBufferGeometry(25);
-var TetrahedronGeometry = new THREE.TetrahedronBufferGeometry(25);
+var OctahedronGeometry =  new THREE.OctahedronBufferGeometry(35);
+var TetrahedronGeometry = new THREE.TetrahedronBufferGeometry(35);
+window.RenderGeo = RenderGeo;
 
-init();
+// Surface
+window.SetMaterial = SetMaterial
+window.SetTexture = SetTexture;
+
+// Light
+window.SetPointLight = SetPointLight;
+window.RemoveLight = RemoveLight;
+
+// Animation
+var mesh = new THREE.Mesh();
+var spinx, spiny, leftright, updown, around;
+window.Spin_X = Spin_X;
+window.RemoveSpin_X = RemoveSpin_X;
+window.Spin_Y = Spin_Y;
+window.RemoveSpin_Y = RemoveSpin_Y;
+const position_x = mesh.position.x;
+var kt1 = 0;
+window.Left_Right = Left_Right;
+window.RemoveLeft_Right = RemoveLeft_Right;
+const position_y = mesh.position.y;
+var kt2 = 0;
+window.Up_Down = Up_Down;
+window.RemoveUp_Down = RemoveUp_Down;
+window.RemoveAllAnimation = RemoveAllAnimation;
+
+// Model
+const loader = new GLTFLoader();
+window.Load_model = Load_model;
+
+// Impact
+window.Translate = Translate;
+window.Rotate = Rotate;
+window.Scale = Scale;
+
+// Contrrol
+window.setFOV = setFOV;
+window.setFar = setFar;
+window.setNear = setNear;
+
+// Renderer
+raycaster = new THREE.Raycaster();
+renderer = new THREE.WebGLRenderer({antialias: true})
+renderer.setSize( window.innerWidth, window.innerHeight )
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+document.getElementById("rendering").addEventListener('mousedown', onMouseDown, false);
+document.getElementById("rendering").appendChild(renderer.domElement);
+window.addEventListener('resize', () => {
+	var width = window.innerWidth
+	var height = window.innerHeight
+	renderer.setSize(width, height)
+	camera.aspect = width / height
+	camera.updateProjectionMatrix()
+	render()
+})
+orbit = new OrbitControls(camera, renderer.domElement);
+orbit.update();
+orbit.addEventListener('change', render);
+control = new TransformControls(camera, renderer.domElement);
+console.log(control)
+control.addEventListener('change', render);
+control.addEventListener('dragging-changed', function (event) {
+	orbit.enabled = !event.value;
+});
 render();
 
-function init() {
-	// Scene
-	scene = new THREE.Scene();
-	scene.background = new THREE.Color(0x343a40);
+///// Function
 
-	// Camera
-	var camera_x = 1;
-	var camera_y = 50;
-	var camera_z = 100;
-	camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 10000);
-	camera.position.set(camera_x, camera_y, camera_z);
-	camera.lookAt(new THREE.Vector3(0, 0, 0));
-
-	// Grid
-    var size = 300;
-    var divisions = 50;
-    var gridHelper = new THREE.GridHelper(size, divisions, 0xFFFFFF);
-	scene.add(gridHelper);
-	
-    // Renderer
-    raycaster = new THREE.Raycaster();
-    renderer = new THREE.WebGLRenderer({antialias: true})
-    renderer.setSize( window.innerWidth, window.innerHeight )
-    renderer.shadowMap.enabled = true;
-	renderer.shadowMap.type = THREE.PCFSoftShadowMap;
-	document.getElementById("rendering").addEventListener('mousedown', onMouseDown, false);
-	document.getElementById("rendering").appendChild(renderer.domElement);
-	window.addEventListener('resize', () => {
-		var width = window.innerWidth
-		var height = window.innerHeight
-		renderer.setSize(width, height)
-		camera.aspect = width / height
-		camera.updateProjectionMatrix()
-		render()
-	})
-	orbit = new OrbitControls(camera, renderer.domElement);
-	orbit.update();
-	orbit.addEventListener('change', render);
-	control = new TransformControls(camera, renderer.domElement);
-	console.log(control)
-	control.addEventListener('change', render);
-	control.addEventListener('dragging-changed', function (event) {
-		orbit.enabled = !event.value;
-	});
-}
-
+// Renderer
 function render() {
 	renderer.render(scene, camera);
 }
+////////////////////
 
-// 1. Basic 3D model with points, line and solid
-function CloneMesh(dummy_mesh) {
-	mesh.name = dummy_mesh.name;
-	mesh.position.set(dummy_mesh.position.x, dummy_mesh.position.y, dummy_mesh.position.z);
-	mesh.rotation.set(dummy_mesh.rotation.x, dummy_mesh.rotation.y, dummy_mesh.rotation.z);
-	mesh.scale.set(dummy_mesh.scale.x, dummy_mesh.scale.y, dummy_mesh.scale.z);
-	mesh.castShadow = true;
-	mesh.receiveShadow = true;
-	scene.add(mesh);
-	control_transform(mesh);
-}
-function SetMaterial(mat) {
-	mesh = scene.getObjectByName("mesh1");
-	light = scene.getObjectByName("pl1");
-	type_material = mat;
-	if (mesh) {
-		const dummy_mesh = mesh.clone();
-		scene.remove(mesh);
-
-		switch (type_material) {
-			case 1:
-				material = new THREE.PointsMaterial({ color: 0x48D1CC, size: 0.5 });
-				mesh = new THREE.Points(dummy_mesh.geometry, material);
-				CloneMesh(dummy_mesh);
-				break;
-			case 2:
-				material = new THREE.MeshBasicMaterial({ color: 0xFA8072, wireframe: true });
-				mesh = new THREE.Mesh(dummy_mesh.geometry, material);
-				CloneMesh(dummy_mesh);
-				break;
-			case 3:
-				if (!light)
-					material = new THREE.MeshBasicMaterial({ color: 0xC0C0C0 });
-				else
-					material = new THREE.MeshPhongMaterial({ color: 0xC0C0C0 });
-				mesh = new THREE.Mesh(dummy_mesh.geometry, material);
-				CloneMesh(dummy_mesh);
-				break;
-			case 4:
-				if (!light)
-					material = new THREE.MeshBasicMaterial({ map: texture, transparent: true });
-				else
-					material = new THREE.MeshLambertMaterial({ map: texture, transparent: true });
-				mesh = new THREE.Mesh(dummy_mesh.geometry, material);
-				CloneMesh(dummy_mesh);
-				break;
-		}
-		render();
-	}
-}
-window.SetMaterial = SetMaterial
-
+// Geometry
 function RenderGeo(id) {
 	mesh = scene.getObjectByName("mesh1");
 	scene.remove(mesh);
-
 	switch (id) {
 		case 1:
 			mesh = new THREE.Mesh(BoxGeometry, material);
@@ -171,73 +154,70 @@ function RenderGeo(id) {
 	control_transform(mesh);
 	render();
 }
-window.RenderGeo = RenderGeo;
+////////////////////
 
-// 2. near, far
-function setFOV(value) {
-	camera.fov = Number(value);
-	camera.updateProjectionMatrix();
-	render();
-}
-window.setFOV = setFOV;
+// Surface
+function SetMaterial(mat) {
+	function CloneMesh(dummy_mesh) {
+		mesh.name = dummy_mesh.name;
+		mesh.position.set(dummy_mesh.position.x, dummy_mesh.position.y, dummy_mesh.position.z);
+		mesh.rotation.set(dummy_mesh.rotation.x, dummy_mesh.rotation.y, dummy_mesh.rotation.z);
+		mesh.scale.set(dummy_mesh.scale.x, dummy_mesh.scale.y, dummy_mesh.scale.z);
+		mesh.castShadow = true;
+		mesh.receiveShadow = true;
+		scene.add(mesh);
+		control_transform(mesh);
+	}
 
-function setFar(value) {
-	camera.far = Number(value);
-	camera.updateProjectionMatrix();
-	render();
-}
-window.setFar = setFar;
+	mesh = scene.getObjectByName("mesh1");
+	light = scene.getObjectByName("pl1");
+	type_material = mat;
+	if (mesh) {
+		const dummy_mesh = mesh.clone();
+		scene.remove(mesh);
 
-function setNear(value) {
-	camera.near = Number(value);
-	camera.updateProjectionMatrix();
-	render();
-}
-window.setNear = setNear;
-
-// 3. Affine
-function Translate() {
-	control.setMode("translate");
-}
-window.Translate = Translate;
-
-function Rotate() {
-	control.setMode("rotate");
-}
-window.Rotate = Rotate;
-
-function Scale() {
-	control.setMode("scale");
-}
-window.Scale = Scale;
-
-function control_transform(mesh) {
-	control.attach(mesh);
-	scene.add(control);
-	console.log(control);
-	window.addEventListener('keydown', function (event) {
-		switch (event.keyCode) {
-			case 84: // T
-				Translate(); break;
-			case 82: // R
-				Rotate(); break;
-			case 83: // S
-				Scale(); break;
-			case 88: // X
-				control.showX = !control.showX; break;
-			case 89: // Y
-				control.showY = !control.showY; break;
-			case 90: // Z
-				control.showZ = !control.showZ; break;
-			case 76: // L
-				SetPointLight(); break;
-			case 32: // spacebar
-				RemoveLight(); break;
+		switch (type_material) {
+			case 1:
+				material = new THREE.PointsMaterial({ color: 0x48D1CC, size: 0.5 });
+				mesh = new THREE.Points(dummy_mesh.geometry, material);
+				CloneMesh(dummy_mesh);
+				break;
+			case 2:
+				material = new THREE.MeshBasicMaterial({ color: 0xFA8072, wireframe: true });
+				mesh = new THREE.Mesh(dummy_mesh.geometry, material);
+				CloneMesh(dummy_mesh);
+				break;
+			case 3:
+				if (!light)
+					material = new THREE.MeshBasicMaterial({ color: 0xC0C0C0 });
+				else
+					material = new THREE.MeshPhongMaterial({ color: 0xC0C0C0 });
+				mesh = new THREE.Mesh(dummy_mesh.geometry, material);
+				CloneMesh(dummy_mesh);
+				break;
+			case 4:
+				if (!light)
+					material = new THREE.MeshBasicMaterial({ map: texture, transparent: true });
+				else
+					material = new THREE.MeshLambertMaterial({ map: texture, transparent: true });
+				mesh = new THREE.Mesh(dummy_mesh.geometry, material);
+				CloneMesh(dummy_mesh);
+				break;
 		}
-	});
+		render();
+	}
 }
+function SetTexture(url) {
+	mesh = scene.getObjectByName("mesh1");
+	if (mesh) {
+		texture = new THREE.TextureLoader().load(url, render);
+		texture.anisotropy = renderer.capabilities.getMaxAnisotropy();
+		SetMaterial(4);
+	}
+}
+////////////////////
 
-// 4.Light
+// Light
 function SetPointLight() {
 	light = scene.getObjectByName("pl1");
 
@@ -257,7 +237,7 @@ function SetPointLight() {
 		const intensity = 2;
 		light = new THREE.PointLight(color, intensity);
 		light.castShadow = true;
-		light.position.set(0, 70, 0);
+		light.position.set(100, 50, 40);
 		light.name = "pl1";
 		scene.add(light);
 		control_transform(light);
@@ -270,8 +250,6 @@ function SetPointLight() {
 		render();
 	}
 }
-window.SetPointLight = SetPointLight;
-
 function RemoveLight() {
 
 	scene.remove(light);
@@ -282,8 +260,6 @@ function RemoveLight() {
 	}
 	render();
 }
-window.RemoveLight = RemoveLight;
-
 function onMouseDown(event) {
 	event.preventDefault();
 	mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
@@ -310,117 +286,163 @@ function onMouseDown(event) {
 	if (check_obj == 0 && control.dragging == 0) control.detach();
 	render();
 }
-// 5.Texture 
-function SetTexture(url) {
-	mesh = scene.getObjectByName("mesh1");
-	if (mesh) {
-		texture = new THREE.TextureLoader().load(url, render);
-		texture.anisotropy = renderer.capabilities.getMaxAnisotropy();
-		SetMaterial(4);
-	}
-}
-window.SetTexture = SetTexture;
+////////////////////
 
-
-// 6. Animation
-var mesh = new THREE.Mesh();
-var id_animation1, id_animation2, id_animation3, id_animation4;
-
-function Animation1() {
-	cancelAnimationFrame(id_animation1);
+// Animation
+function Spin_X() {
+	cancelAnimationFrame(spinx);
 	mesh.rotation.x += 0.01;
 	render();
-	id_animation1 = requestAnimationFrame(Animation1);
+	spinx = requestAnimationFrame(Spin_X);
 }
-window.Animation1 = Animation1;
-
-function Animation2() {
-	cancelAnimationFrame(id_animation2);
+function RemoveSpin_X() {
+	cancelAnimationFrame(spinx);
+}
+function Spin_Y() {
+	cancelAnimationFrame(spiny);
 	mesh.rotation.y += 0.01;
 	render();
-	id_animation2 = requestAnimationFrame(Animation2);
+	spiny = requestAnimationFrame(Spin_Y);
 }
-window.Animation2 = Animation2;
-
-const position_x = mesh.position.x;
-const position_y = mesh.position.y;
-var kt = 0;
-function Animation3() {
-	cancelAnimationFrame(id_animation3);
+function RemoveSpin_Y() {
+	cancelAnimationFrame(spiny);
+}
+function Left_Right() {	
+	cancelAnimationFrame(leftright);
 	var positionx = mesh.position.x;
-	var positiony = mesh.position.y;
-	if (positiony < position_y + 30 && kt == 0)
-	{
-		mesh.position.y += 0.3;
-	}
-	if (positiony > position_y + 30 && positionx < position_x + 30) 
-	{
+	if (positionx < position_x + 30 && kt1 == 0) 
+	{ 
 		mesh.position.x += 0.3;
 	}
-	if (positiony > position_y + 30 && positionx > position_x + 30) kt += 1;
-	if (kt > 1 && positiony > position_y)
-	{
-		mesh.position.y -= 0.3;
-	}
-	if (kt > 1 && positiony < position_y && positionx > position_x)
-	{
+	if (positionx > position_x + 30) kt1 += 1;
+	if (kt1 > 1 && positionx > position_x) 
+	{ 
 		mesh.position.x -= 0.3;
 	}
-	if (positiony < position_y && positionx < position_x) kt = 0;
-	mesh.rotation.y += 0.01;
+	if (positionx < position_x) kt1 = 0;
 	render();
-	id_animation3 = requestAnimationFrame(Animation3);
+	leftright = requestAnimationFrame(Left_Right);
 }
-window.Animation3 = Animation3;
-
-var kt2 = 0;
-function Animation4() {
-	cancelAnimationFrame(id_animation4);
+function RemoveLeft_Right() {
+	cancelAnimationFrame(leftright);
+}
+function Up_Down() {
+	cancelAnimationFrame(updown);
 	var positiony = mesh.position.y;
 	if (positiony < position_y + 30 && kt2 == 0) 
 	{ 
 		mesh.position.y += 0.3;
-		mesh.rotation.y += 0.05;
 	}
 	if (positiony > position_y + 30) kt2 += 1;
 	if (kt2 > 1 && positiony > position_y) 
 	{ 
 		mesh.position.y -= 0.3;
-		mesh.rotation.y += 0.05;
 	}
 	if (positiony < position_y) kt2 = 0;
 	render();
-	id_animation4 = requestAnimationFrame(Animation4);
+	updown = requestAnimationFrame(Up_Down);
 }
-window.Animation4 = Animation4;
-
-function RemoveAnimation1() {
-	cancelAnimationFrame(id_animation1);
+function RemoveUp_Down() {
+	cancelAnimationFrame(updown);
 }
-window.RemoveAnimation1 = RemoveAnimation1;
-
-function RemoveAnimation2() {
-	cancelAnimationFrame(id_animation2);
-}
-window.RemoveAnimation2 = RemoveAnimation2;
-
-function RemoveAnimation3() {
-	cancelAnimationFrame(id_animation3);
-}
-window.RemoveAnimation3 = RemoveAnimation3;
-
-function RemoveAnimation4() {
-	cancelAnimationFrame(id_animation4);
-}
-window.RemoveAnimation4 = RemoveAnimation4;
-
 function RemoveAllAnimation() {
-	cancelAnimationFrame(id_animation1);
-	cancelAnimationFrame(id_animation2);
-	cancelAnimationFrame(id_animation3);
-	cancelAnimationFrame(id_animation4);
+	cancelAnimationFrame(spinx);
+	cancelAnimationFrame(spiny);
+	cancelAnimationFrame(leftright);
+	cancelAnimationFrame(updown);
 	mesh.rotation.set(0, 0, 0);
 	render();
 }
-window.RemoveAllAnimation = RemoveAllAnimation;
+////////////////////
 
+// Model
+function Load_model(id) {
+	// model_name = getObjectByName('model')
+	// scene.remove(model_name);
+	switch (id) {
+		case 1:
+			var model_path = 'models/car/scene.gltf'
+			break;
+		case 2:
+			var model_path = 'models/body/scene.gltf'
+			break; 
+	}
+	loader.load(
+		model_path,
+		function ( gltf ) {
+			scene.add( gltf.scene );
+
+			gltf.scene.scale.set(35,35,35)
+			const box = new THREE.Box3().setFromObject( gltf.scene );
+			const center = box.getCenter( new THREE.Vector3() );
+			gltf.scene.position.x += ( gltf.scene.position.x - center.x );
+			gltf.scene.position.y += ( gltf.scene.position.y - center.y );
+			gltf.scene.position.y += 9
+			gltf.scene.position.z += ( gltf.scene.position.z - center.z );
+			
+			gltf.animations;
+			gltf.scene; 
+			gltf.scenes;
+			gltf.cameras;
+			gltf.asset;
+	});
+}
+////////////////////
+
+// Impact
+function Translate() {
+	control.setMode("translate");
+}
+function Rotate() {
+	control.setMode("rotate");
+}
+function Scale() {
+	control.setMode("scale");
+}
+////////////////////
+
+// Control
+function setFOV(value) {
+	camera.fov = Number(value);
+	camera.updateProjectionMatrix();
+	render();
+}
+function setFar(value) {
+	camera.far = Number(value);
+	camera.updateProjectionMatrix();
+	render();
+}
+function setNear(value) {
+	camera.near = Number(value);
+	camera.updateProjectionMatrix();
+	render();
+}
+////////////////////
+
+
+
+function control_transform(mesh) {
+	control.attach(mesh);
+	scene.add(control);
+	console.log(control);
+	window.addEventListener('keydown', function (event) {
+		switch (event.keyCode) {
+			case 84: // T
+				Translate(); break;
+			case 82: // R
+				Rotate(); break;
+			case 83: // S
+				Scale(); break;
+			case 88: // X
+				control.showX = !control.showX; break;
+			case 89: // Y
+				control.showY = !control.showY; break;
+			case 90: // Z
+				control.showZ = !control.showZ; break;
+			case 76: // L
+				SetPointLight(); break;
+			case 32: // spacebar
+				RemoveLight(); break;
+		}
+	});
+}
